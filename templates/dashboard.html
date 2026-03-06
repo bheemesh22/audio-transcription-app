@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2 style="margin-bottom:30px;">Dashboard</h2>
+
+<!-- ================= LOADING OVERLAY ================= -->
+<div id="loadingOverlay" style="
+    display:none;
+    position:fixed;
+    top:0;
+    left:0;
+    width:100%;
+    height:100%;
+    background:rgba(0,0,0,0.6);
+    backdrop-filter: blur(8px);
+    justify-content:center;
+    align-items:center;
+    z-index:9999;
+    flex-direction:column;
+    color:white;
+">
+    <div style="
+        width:60px;
+        height:60px;
+        border:6px solid rgba(255,255,255,0.2);
+        border-top:6px solid #00f5ff;
+        border-radius:50%;
+        animation:spin 1s linear infinite;
+    "></div>
+    <p style="margin-top:20px; font-size:18px;">Processing... Please wait</p>
+</div>
+
+<style>
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.download-container {
+    display:flex;
+    flex-wrap:wrap;
+    gap:12px;
+    margin-top:15px;
+}
+
+.section-title {
+    margin-top:40px;
+    margin-bottom:15px;
+}
+</style>
+
+<!-- ================= LIVE RECORDING ================= -->
+<div class="card">
+    <h3>🎙 Live Recording</h3>
+
+    <div style="margin-top:15px;">
+        <button class="btn btn-primary" onclick="startRecording()">Start Recording</button>
+        <button class="btn btn-danger" onclick="stopRecording()">Stop Recording</button>
+    </div>
+
+    <br>
+
+    <audio id="audioPlayer" controls style="width:100%; border-radius:15px;"></audio>
+
+    <br><br>
+
+    <button class="btn btn-success" onclick="uploadRecording(); showLoading();">
+        Upload Recording
+    </button>
+</div>
+
+<!-- ================= FILE UPLOAD ================= -->
+<div class="card">
+    <h3>📁 Upload Audio File</h3>
+
+    <form method="POST" enctype="multipart/form-data" onsubmit="showLoading()" style="margin-top:15px;">
+        <input type="file" name="audio" accept="audio/*" required>
+        <button class="btn btn-primary" type="submit">Upload & Transcribe</button>
+    </form>
+</div>
+
+<!-- ================= CURRENT TRANSCRIPT ================= -->
+
+<h3 class="section-title">📄 Current Transcript</h3>
+
+{% if transcript %}
+<div class="card">
+
+    <h3>{{ transcript.title }}</h3>
+    <small style="opacity:0.7;">{{ transcript.created_at }}</small>
+
+    {% if transcript.audio_file %}
+    <audio controls style="width:100%; margin-top:20px; border-radius:15px;">
+        <source src="/uploads/{{ transcript.audio_file }}">
+    </audio>
+    {% endif %}
+
+    <!-- ================= TRANSCRIPT ================= -->
+    <div class="box">
+        <h4>Transcript</h4>
+        <p style="line-height:1.6;">{{ transcript.transcript }}</p>
+
+        <div class="download-container">
+            <a class="btn btn-success"
+               href="/download/{{ transcript.id }}/transcript">
+               Download TXT
+            </a>
+
+            <a class="btn btn-primary"
+               href="/download/{{ transcript.id }}/transcript_json">
+               Download JSON
+            </a>
+        </div>
+    </div>
+
+    <!-- ================= SUMMARY ================= -->
+    <div class="box">
+        <h4>Summary</h4>
+        <p style="line-height:1.6;">{{ transcript.summary }}</p>
+
+        <div class="download-container">
+            <a class="btn btn-success"
+               href="/download/{{ transcript.id }}/summary">
+               Download TXT
+            </a>
+
+            <a class="btn btn-primary"
+               href="/download/{{ transcript.id }}/summary_json">
+               Download JSON
+            </a>
+        </div>
+    </div>
+
+    <!-- ================= TRANSLATION SECTION ================= -->
+    <hr style="margin:30px 0; border:1px solid rgba(255,255,255,0.1);">
+
+    <form method="POST"
+          action="{{ url_for('translate', id=transcript.id) }}"
+          onsubmit="showLoading()">
+        <input type="text"
+               name="language"
+               placeholder="Enter language code (hi, te, fr, de...)"
+               required>
+        <button class="btn btn-primary" type="submit">
+            Translate
+        </button>
+    </form>
+
+    {% if transcript.translated_transcript %}
+
+    <!-- ================= TRANSLATED TRANSCRIPT ================= -->
+    <div class="box">
+        <h4>Translated Transcript</h4>
+        <p style="line-height:1.6;">{{ transcript.translated_transcript }}</p>
+
+        <div class="download-container">
+            <a class="btn btn-success"
+               href="/download/{{ transcript.id }}/translated_transcript">
+               Download TXT
+            </a>
+
+            <a class="btn btn-primary"
+               href="/download/{{ transcript.id }}/translated_transcript_json">
+               Download JSON
+            </a>
+        </div>
+    </div>
+
+    <!-- ================= TRANSLATED SUMMARY ================= -->
+    <div class="box">
+        <h4>Translated Summary</h4>
+        <p style="line-height:1.6;">{{ transcript.translated_summary }}</p>
+
+        <div class="download-container">
+            <a class="btn btn-success"
+               href="/download/{{ transcript.id }}/translated_summary">
+               Download TXT
+            </a>
+
+            <a class="btn btn-primary"
+               href="/download/{{ transcript.id }}/translated_summary_json">
+               Download JSON
+            </a>
+        </div>
+    </div>
+
+    {% endif %}
+
+    <!-- ================= FULL EXPORT ================= -->
+    <hr style="margin:30px 0; border:1px solid rgba(255,255,255,0.1);">
+
+    <h4>📦 Export Full Report</h4>
+    <div class="download-container">
+        <a class="btn btn-success"
+           href="/download/{{ transcript.id }}/transcript">
+           Full TXT
+        </a>
+
+        <a class="btn btn-primary"
+           href="/download/{{ transcript.id }}/both_json">
+           Full JSON
+        </a>
+    </div>
+
+    <br><br>
+
+    <a href="{{ url_for('delete', id=transcript.id) }}"
+       class="btn btn-danger">
+       Delete Transcript
+    </a>
+
+</div>
+
+{% else %}
+<div class="card">
+    <p style="opacity:0.8;">
+        No transcript yet. Upload or record audio to begin.
+    </p>
+</div>
+{% endif %}
+
+<script>
+function showLoading() {
+    document.getElementById("loadingOverlay").style.display = "flex";
+}
+</script>
+
+<script src="{{ url_for('static', filename='recorder.js') }}"></script>
+
+{% endblock %}

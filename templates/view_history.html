@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2>{{ entry.title }}</h2>
+
+<p><b>Transcript:</b></p>
+<p>{{ entry.transcript }}</p>
+
+<p><b>Summary:</b></p>
+<p>{{ entry.summary }}</p>
+
+{% if entry.translated_transcript %}
+    <p><b>Translated Transcript:</b></p>
+    <p>{{ entry.translated_transcript }}</p>
+
+    <p><b>Translated Summary:</b></p>
+    <p>{{ entry.translated_summary }}</p>
+{% endif %}
+
+{% endblock %}

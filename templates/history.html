@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2>Transcript History</h2>
+
+{% if transcripts %}
+    {% for t in transcripts %}
+        <div class="card">
+
+            <h4>{{ t.title }}</h4>
+            <p><small>{{ t.created_at }}</small></p>
+
+            {% if t.audio_file %}
+                <audio controls style="width:100%;">
+                    <source src="/uploads/{{ t.audio_file }}">
+                </audio>
+            {% endif %}
+
+            <p><b>Transcript:</b></p>
+            <p>{{ t.transcript }}</p>
+
+            <p><b>Summary:</b></p>
+            <p>{{ t.summary }}</p>
+
+            <a href="{{ url_for('delete', id=t.id) }}" style="color:red;">Delete</a>
+
+        </div>
+    {% endfor %}
+{% else %}
+    <p>No history available.</p>
+{% endif %}
+
+{% endblock %}
