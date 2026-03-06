@@ -83,7 +83,7 @@ AI-Audio-Transcription/
 ### 1️⃣ Clone the Repository
 
 
-git clone https://github.com/YOUR_USERNAME/ai-audio-transcription-app.git
+git clone https://github.com/bheemesh22/audio-transcription-app.git
 
 
 ### 2️⃣ Navigate to Project
