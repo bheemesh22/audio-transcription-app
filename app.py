@@ -221,6 +221,24 @@ def download(id, type):
             mimetype="text/plain",
             headers={"Content-Disposition": f"attachment;filename={filename}"}
         )
+    
+    elif type == "full_txt":
+        content = f"""TITLE:
+        {entry.title}
+        
+        TRANSCRIPT:
+        {entry.transcript}
+        
+        SUMMARY:
+        {entry.summary}
+         """
+        filename = "full_report.txt"
+        return Response(
+        content,
+        mimetype="text/plain; charset=utf-8",
+        headers={"Content-Disposition": f"attachment;filename={filename}"}
+    )
+
 
     elif type == "translated_transcript":
         content = entry.translated_transcript or ""
@@ -275,7 +293,7 @@ def download(id, type):
     else:
         return "Invalid download type"
 
-    json_data = json.dumps(data, indent=4)
+    json_data = json.dumps(data, indent=4, ensure_ascii=False)
 
     return Response(
         json_data,

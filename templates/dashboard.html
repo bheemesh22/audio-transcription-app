@@ -192,7 +192,7 @@
     <h4>📦 Export Full Report</h4>
     <div class="download-container">
         <a class="btn btn-success"
-           href="/download/{{ transcript.id }}/transcript">
+           href="{{ url_for('download', id=transcript.id, type='full_txt') }}">
            Full TXT
         </a>
 
