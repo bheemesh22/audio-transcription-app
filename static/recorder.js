@@ -14,7 +14,7 @@ function startRecording() {
             };
 
             mediaRecorder.onstop = () => {
-                const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
                 const audioUrl = URL.createObjectURL(audioBlob);
                 document.getElementById("audioPlayer").src = audioUrl;
 
@@ -34,7 +34,7 @@ function uploadRecording() {
     }
 
     let formData = new FormData();
-    formData.append("audio", window.recordedBlob, "recording.wav");
+    formData.append("audio", window.recordedBlob, "recording.webm");
 
     fetch("/dashboard", {
         method: "POST",

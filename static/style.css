@@ -175,3 +175,28 @@ button {
 .auth-box a:hover{
     text-decoration:underline;
 }
+
+.admin-table{
+width:100%;
+border-collapse:collapse;
+margin-top:15px;
+}
+
+.admin-table th{
+background:#111827;
+color:white;
+padding:12px;
+}
+
+.admin-table td{
+padding:12px;
+border-bottom:1px solid #ddd;
+}
+
+.admin-table tr:hover{
+background:#f4f4f4;
+}
+
+.section-title{
+margin-bottom:20px;
+}

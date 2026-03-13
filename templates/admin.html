@@ -1,43 +1,105 @@
-<h2>Admin Panel</h2>
+{% extends "base.html" %}
+{% block content %}
+<style>
+
+table{
+    width:100%;
+    border-collapse: collapse;
+    margin-top:20px;
+}
+
+th, td{
+    border:1px solid rgba(255,255,255,0.2);
+    padding:10px;
+    text-align:left;
+}
+
+th{
+    background:rgba(255,255,255,0.15);
+}
+
+tr:nth-child(even){
+    background:rgba(255,255,255,0.05);
+}
+
+.admin-btn{
+    padding:6px 12px;
+    font-size:13px;
+    border-radius:20px;
+}
+
+</style>
+<h2 class="section-title">Admin Panel</h2>
+
+<div class="card">
 
 <h3>Users</h3>
-<table border="1">
-    <tr>
-        <th>ID</th>
-        <th>Username</th>
-        <th>Action</th>
-    </tr>
-    {% for user in users %}
-    <tr>
-        <td>{{ user.id }}</td>
-        <td>{{ user.username }}</td>
-        <td>
-            {% if user.username != 'admin' %}
-            <a href="{{ url_for('admin_delete_user', user_id=user.id) }}">Delete</a>
-            {% endif %}
-        </td>
-    </tr>
-    {% endfor %}
+
+<table class="admin-table" border="1px solid black">
+
+<tr>
+<th>ID</th>
+<th>Username</th>
+<th>Action</th>
+</tr>
+
+{% for user in users %}
+<tr>
+<td>{{ user.id }}</td>
+<td>{{ user.username }}</td>
+<td>
+
+{% if user.username != 'admin' %}
+
+<a class="btn btn-danger admin-btn" 
+href="{{ url_for('admin_delete_user', user_id=user.id) }}">
+Delete
+</a>
+
+{% endif %}
+
+</td>
+</tr>
+
+{% endfor %}
+
 </table>
 
-<br><br>
+</div>
+
+<br>
+
+<div class="card">
 
 <h3>All Transcripts</h3>
-<table border="1">
-    <tr>
-        <th>ID</th>
-        <th>User ID</th>
-        <th>Title</th>
-        <th>Action</th>
-    </tr>
-    {% for t in transcripts %}
-    <tr>
-        <td>{{ t.id }}</td>
-        <td>{{ t.user_id }}</td>
-        <td>{{ t.title }}</td>
-        <td>
-            <a href="{{ url_for('admin_delete_transcript', id=t.id) }}">Delete</a>
-        </td>
-    </tr>
-    {% endfor %}
+
+<table class="admin-table">
+
+<tr>
+<th>ID</th>
+<th>User ID</th>
+<th>Title</th>
+<th>Action</th>
+</tr>
+
+{% for t in transcripts %}
+<tr>
+<td>{{ t.id }}</td>
+<td>{{ t.user_id }}</td>
+<td>{{ t.title }}</td>
+<td>
+
+<a class="btn btn-danger admin-btn"
+href="{{ url_for('admin_delete_transcript', id=t.id) }}">
+Delete
+</a>
+
+</td>
+</tr>
+{% endfor %}
+
 </table>
+
+</div>
+
+{% endblock %}
