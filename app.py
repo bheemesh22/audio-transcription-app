@@ -24,7 +24,13 @@ os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
 
 db = SQLAlchemy(app)
 
-# 🔥 LOAD WHISPER MODEL (use "base" or "tiny" if system is slow)
+# Add ffmpeg directory to PATH for whisper
+import sys
+ffmpeg_dir = os.path.abspath("ffmpeg")
+if ffmpeg_dir not in os.environ["PATH"]:
+    os.environ["PATH"] += os.pathsep + ffmpeg_dir
+
+# LOAD WHISPER MODEL (use "base" or "tiny" if system is slow)
 model = whisper.load_model("tiny")
 
 # ---------------- DATABASE MODELS ---------------- #
@@ -66,36 +72,14 @@ def generate_title(text):
     return text.title()
 
 def generate_summary(text):
-
     import textwrap
-
     text = text.replace("\n", " ")
-
     chunks = textwrap.wrap(text, 250)
-
     if len(chunks) >= 3:
         summary = " ".join(chunks[:3])
     else:
         summary = text[:700]
-
     return summary
-
-def convert_to_wav(input_path):
-
-    output_path = input_path.replace(".webm", ".wav")
-
-    ffmpeg_path = os.path.join("ffmpeg", "ffmpeg.exe")
-
-    command = [
-        ffmpeg_path,
-        "-y",
-        "-i", input_path,
-        output_path
-    ]
-
-    subprocess.run(command)
-
-    return output_path
 
 # ---------------- ROUTES ---------------- #
 
@@ -167,23 +151,81 @@ def dashboard():
 
         if file:
             filename = secure_filename(file.filename)
-            
-            if filename == "":
+
+            # If filename is empty (common with browser blobs), set a default
+            if not filename or filename.strip() == "":
                 filename = "recording.webm"
 
+            import time
+            base, ext = os.path.splitext(filename)
 
-            file_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+            # Ensure extension exists — blobs from JS sometimes lose it
+            if not ext:
+                ext = ".webm"
+                base = base or "recording"
+
+            unique_filename = f"{base}_{int(time.time())}{ext}"
+            file_path = os.path.join(app.config["UPLOAD_FOLDER"], unique_filename)
             file.save(file_path)
 
-            print("Saved file:", file_path)
+            print(f"[INFO] Saved uploaded file: {file_path}")
 
-            # 🔥 REAL TRANSCRIPTION
-            if file_path.endswith(".webm"):
-                file_path = convert_to_wav(file_path)
-            result = model.transcribe(file_path)
-            transcript_text = result["text"]
+            # --------------------------------------------------
+            # Convert .webm / .ogg / .opus → .wav before Whisper
+            # Browser MediaRecorder outputs Opus-in-WebM which
+            # Whisper cannot reliably decode without conversion.
+            # --------------------------------------------------
+            transcribe_path = file_path
+            wav_path = None
 
-            # 🔥 TITLE + SUMMARY
+            if ext.lower() in [".webm", ".ogg", ".opus"]:
+                wav_filename = f"{base}_{int(time.time())}_converted.wav"
+                wav_path = os.path.join(app.config["UPLOAD_FOLDER"], wav_filename)
+                try:
+                    result_ffmpeg = subprocess.run(
+                        [
+                            "ffmpeg", "-y",
+                            "-i", file_path,
+                            "-ar", "16000",   # 16kHz sample rate — optimal for Whisper
+                            "-ac", "1",       # Mono channel
+                            "-c:a", "pcm_s16le",
+                            wav_path
+                        ],
+                        check=True,
+                        capture_output=True
+                    )
+                    transcribe_path = wav_path
+                    print(f"[INFO] Converted to WAV: {wav_path}")
+
+                except subprocess.CalledProcessError as e:
+                    print(f"[ERROR] ffmpeg conversion failed: {e.stderr.decode()}")
+                    flash("Audio conversion failed. Please ensure ffmpeg is installed and in PATH.")
+                    return redirect(url_for("dashboard"))
+
+            # --------------------------------------------------
+            # Transcribe with Whisper — wrapped in try/except
+            # so errors are surfaced to the user, not swallowed
+            # --------------------------------------------------
+            try:
+                result = model.transcribe(transcribe_path)
+                transcript_text = result["text"].strip()
+
+                if not transcript_text:
+                    flash("Transcription returned empty text. Please check your microphone and try again.")
+                    return redirect(url_for("dashboard"))
+
+            except Exception as e:
+                print(f"[ERROR] Whisper transcription failed: {str(e)}")
+                flash(f"Transcription failed: {str(e)}")
+                return redirect(url_for("dashboard"))
+
+            finally:
+                # Clean up the temporary WAV file after transcription
+                if wav_path and os.path.exists(wav_path):
+                    os.remove(wav_path)
+                    print(f"[INFO] Cleaned up temp WAV: {wav_path}")
+
+            # Title + Summary
             title = generate_title(transcript_text)
             summary_text = generate_summary(transcript_text)
 
@@ -192,17 +234,17 @@ def dashboard():
                 title=title,
                 transcript=transcript_text,
                 summary=summary_text,
-                audio_file=filename
+                audio_file=unique_filename
             )
 
             db.session.add(new_entry)
             db.session.commit()
             flash("Transcription completed!")
 
-    # ONLY LATEST TRANSCRIPT
+    # Show only the latest transcript for this user
     latest_transcript = Transcript.query.filter_by(
         user_id=session["user_id"]
-    ).order_by(Transcript.created_at.desc()).first()
+    ).order_by(Transcript.id.desc()).first()
 
     return render_template("dashboard.html", transcript=latest_transcript)
 
@@ -230,9 +272,6 @@ def translate(id):
 
 # -------- DOWNLOAD -------- #
 
-
-
-
 @app.route("/download/<int:id>/<string:type>")
 def download(id, type):
 
@@ -257,7 +296,7 @@ def download(id, type):
             mimetype="text/plain",
             headers={"Content-Disposition": f"attachment;filename={filename}"}
         )
-    
+
     elif type == "full_txt":
         content = f"""
         ==============================
@@ -284,11 +323,10 @@ def download(id, type):
         """
         filename = "full_report.txt"
         return Response(
-        content,
-        mimetype="text/plain; charset=utf-8",
-        headers={"Content-Disposition": f"attachment;filename={filename}"}
-    )
-
+            content,
+            mimetype="text/plain; charset=utf-8",
+            headers={"Content-Disposition": f"attachment;filename={filename}"}
+        )
 
     elif type == "translated_transcript":
         content = entry.translated_transcript or ""
@@ -351,19 +389,7 @@ def download(id, type):
         headers={"Content-Disposition": f"attachment;filename={filename}"}
     )
 
-    # -------- CREATE JSON --------
-
-
-
-
-    # -------- CREATE TXT --------
-
-    file_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
-
-    with open(file_path, "w", encoding="utf-8") as f:
-        f.write(content)
-
-    return send_file(file_path, as_attachment=True)
+# -------- DOWNLOAD PDF -------- #
 
 @app.route("/download_pdf/<int:id>")
 def download_pdf(id):
@@ -409,6 +435,10 @@ def uploaded_file(filename):
 @app.route("/delete/<int:id>")
 def delete(id):
     entry = Transcript.query.get_or_404(id)
+    if entry.audio_file:
+        file_path = os.path.join(app.config["UPLOAD_FOLDER"], entry.audio_file)
+        if os.path.exists(file_path):
+            os.remove(file_path)
     db.session.delete(entry)
     db.session.commit()
     return redirect(url_for("dashboard"))
@@ -422,7 +452,7 @@ def history():
 
     transcripts = Transcript.query.filter_by(
         user_id=session["user_id"]
-    ).order_by(Transcript.created_at.desc()).all()
+    ).order_by(Transcript.id.desc()).all()
 
     return render_template("history.html", transcripts=transcripts)
 
@@ -450,7 +480,13 @@ def admin_delete_user(user_id):
         flash("Cannot delete main admin")
         return redirect(url_for("admin"))
 
-    # delete user's transcripts first
+    # Delete user's transcripts and audio files first
+    transcripts = Transcript.query.filter_by(user_id=user.id).all()
+    for t in transcripts:
+        if t.audio_file:
+            file_path = os.path.join(app.config["UPLOAD_FOLDER"], t.audio_file)
+            if os.path.exists(file_path):
+                os.remove(file_path)
     Transcript.query.filter_by(user_id=user.id).delete()
 
     db.session.delete(user)
@@ -466,6 +502,10 @@ def admin_delete_transcript(id):
         return redirect(url_for("dashboard"))
 
     entry = Transcript.query.get_or_404(id)
+    if entry.audio_file:
+        file_path = os.path.join(app.config["UPLOAD_FOLDER"], entry.audio_file)
+        if os.path.exists(file_path):
+            os.remove(file_path)
     db.session.delete(entry)
     db.session.commit()
 

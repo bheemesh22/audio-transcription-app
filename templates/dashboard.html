@@ -54,8 +54,9 @@
     <h3>🎙 Live Recording</h3>
 
     <div style="margin-top:15px;">
-        <button class="btn btn-primary" onclick="startRecording()">Start Recording</button>
-        <button class="btn btn-danger" onclick="stopRecording()">Stop Recording</button>
+        <!-- IDs added so recorder.js can enable/disable them -->
+        <button id="btnStart" class="btn btn-primary" onclick="startRecording()">Start Recording</button>
+        <button id="btnStop" class="btn btn-danger" onclick="stopRecording()" disabled>Stop Recording</button>
     </div>
 
     <br>
@@ -64,7 +65,8 @@
 
     <br><br>
 
-    <button class="btn btn-success" onclick="uploadRecording(); showLoading();">
+    <!-- showLoading() is now handled inside uploadRecording() — not here -->
+    <button class="btn btn-success" onclick="uploadRecording()">
         Upload Recording
     </button>
 </div>
