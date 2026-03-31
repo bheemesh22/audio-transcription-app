@@ -212,6 +212,5 @@ If you like this project:
 
 ---
 
-## 📜 License
-
-This project is open-source and available for educational and research
+## License
+This project is licensed under the MIT License.
